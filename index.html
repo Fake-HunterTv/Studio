@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake-Hunter TV - Expert Mode</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root { --pink: #ff0055; --cyan: #00ffcc; --bg: #0b0b0b; }
+        body { background: var(--bg); color: #eee; font-family: 'Roboto', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { background: #111; padding: 12px; border-bottom: 2px solid var(--pink); text-align: center; box-shadow: 0 0 15px rgba(255,0,85,0.3); }
+        header h1 { margin: 0; color: var(--pink); font-size: 20px; text-transform: uppercase; letter-spacing: 2px; }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 320px; background: #111; border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .section-title { padding: 12px; background: #1a1a1a; border-bottom: 1px solid #333; color: var(--cyan); font-weight: bold; font-size: 13px; }
+        .wall-body { flex: 1; overflow-y: auto; padding: 15px; background: #000; scrollbar-width: thin; }
+        .comment-item { background: #161616; border-left: 3px solid var(--pink); padding: 8px; margin-bottom: 8px; border-radius: 4px; font-size: 12px; line-height: 1.4; }
+        .comment-item b { color: var(--cyan); display: block; margin-bottom: 2px; }
+        .com-form { padding: 12px; background: #111; border-top: 1px solid #333; display: flex; flex-direction: column; gap: 8px; }
+        .com-form input, .com-form textarea { background: #000; border: 1px solid #444; color: white; padding: 8px; border-radius: 4px; font-size: 12px; outline: none; }
+        .com-form input:focus { border-color: var(--cyan); }
+        .content { flex: 1; display: flex; flex-direction: column; background: #000; }
+        .tool-ui { background: #111; padding: 10px; display: flex; gap: 10px; justify-content: center; border-bottom: 1px solid #222; }
+        .analysis-zone { display: flex; flex: 1; }
+        .pane { flex: 1; border: 1px solid #222; position: relative; overflow: hidden; background: #050505; cursor: grab; }
+        .pane-label { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 3px 8px; border: 1px solid var(--cyan); color: var(--cyan); font-size: 10px; z-index: 10; }
+        img, video { position: absolute; transform-origin: 0 0; pointer-events: none; }
+        .btn { background: #222; color: white; border: 1px solid #444; padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .btn:hover { border-color: var(--pink); color: var(--pink); }
+        .yt-link { color: white; text-decoration: none; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; border-top: 1px solid #333; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<header><h1><i class="fas fa-crosshairs"></i> FAKE-HUNTER TV</h1></header>
+
+<div class="container">
+    <aside class="sidebar">
+        <div class="section-title"><i class="fas fa-comments"></i> CHAT COMMUNAUTÉ</div>
+        <div id="comment-list" class="wall-body">Chargement...</div>
+        <div class="com-form">
+            <input type="text" id="com-user" placeholder="Ton Pseudo">
+            <textarea id="com-text" rows="2" placeholder="Message..."></textarea>
+            <button class="btn" onclick="sendComment()" style="border-color: var(--cyan); color: var(--cyan);">ENVOYER</button>
+        </div>
+        
+        <a href="https://www.youtube.com/@FakeHunterTV" target="_blank" class="yt-link">
+            <i class="fab fa-youtube" style="color:red; font-size: 18px;"></i> S'ABONNER
+        </a>
+    </aside>
+
+    <main class="content">
+        <div class="tool-ui">
+            <input type="file" id="f1" style="width:75px"><button class="btn" onclick="startCam(1)">CAM A</button>
+            <input type="file" id="f2" style="width:75px"><button class="btn" onclick="startCam(2)">CAM B</button>
+            <button class="btn" onclick="toggleF('C')">CONTRASTE</button>
+            <button class="btn" onclick="toggleF('N')">NÉGATIF</button>
+        </div>
+        <div class="analysis-zone">
+            <div class="pane"><div class="pane-label">SPECIMEN A</div><img id="img1"><video id="v1" autoplay playsinline style="display:none"></video></div>
+            <div class="pane"><div class="pane-label">SPECIMEN B</div><img id="img2"><video id="v2" autoplay playsinline style="display:none"></video></div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- CONFIGURATION ---
+    const BIN_ID = '6968154bae596e708fdcd404';
+    const MASTER_KEY = '$2a$10$DyjoYglR5BTxujqxeihbaeVtsEADhwNZDqumux91lq53GZcXRFGhq';
+    const URL_BIN = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+    // --- SÉCURITÉ : CHARGEMENT TCHAT CALME ---
+    async function loadComments() {
+        try {
+            const res = await fetch(URL_BIN + '/latest', { headers: { 'X-Master-Key': MASTER_KEY } });
+            if (res.status === 429) {
+                document.getElementById('comment-list').innerHTML = "Quota plein (24h)...";
+                return;
+            }
+            const data = await res.json();
+            const list = Array.isArray(data.record) ? data.record : (data.record.messages || []);
+            document.getElementById('comment-list').innerHTML = list.map(c => `
+                <div class="comment-item"><b><i class="fas fa-user"></i> ${c.user}</b>${c.text}</div>
+            `).reverse().join('');
+        } catch (e) { document.getElementById('comment-list').innerHTML = "Serveur en pause..."; }
+    }
+
+    async function sendComment() {
+        const user = document.getElementById('com-user').value;
+        const text = document.getElementById('com-text').value;
+        if(!user || !text) return;
+        const btn = document.querySelector('.com-form .btn');
+        btn.innerText = "...";
+        try {
+            const res = await fetch(URL_BIN + '/latest', { headers: { 'X-Master-Key': MASTER_KEY } });
+            const data = await res.json();
+            let list = Array.isArray(data.record) ? data.record : (data.record.messages || []);
+            list.push({ user, text });
+            if(list.length > 30) list.shift();
+            await fetch(URL_BIN, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': MASTER_KEY },
+                body: JSON.stringify(list)
+            });
+            document.getElementById('com-text').value = "";
+            loadComments();
+        } catch(e) { alert("Erreur quota"); }
+        btn.innerText = "ENVOYER";
+    }
+
+    // --- LOGIQUE CAMÉRAS (TON CODE D'ORIGINE) ---
+    const i1=document.getElementById('img1'), v1=document.getElementById('v1'), i2=document.getElementById('img2'), v2=document.getElementById('v2');
+    let s1={x:0,y:0,sc:1,cam:false}, s2={x:0,y:0,sc:1,cam:false}, drag=null, startPos={x:0,y:0};
+    
+    function load(e,img,vid,s){ 
+        s.cam=false; vid.style.display="none"; img.style.display="block"; 
+        img.src=URL.createObjectURL(e.target.files[0]); s.sc=1; s.x=0; s.y=0; 
+        img.style.transform=`translate(0,0) scale(1)`; 
+    }
+    document.getElementById('f1').onchange=(e)=>load(e,i1,v1,s1);
+    document.getElementById('f2').onchange=(e)=>load(e,i2,v2,s2);
+
+    async function startCam(id){
+        try {
+            const vid=id===1?v1:v2, s=id===1?s1:s2;
+            const stream=await navigator.mediaDevices.getUserMedia({video:true});
+            vid.srcObject=stream; vid.style.display="block"; 
+            (id===1?i1:i2).style.display="none"; s.cam=true;
+        } catch(err) { alert("Caméra bloquée ou introuvable"); }
+    }
+
+    // --- FILTRES ET ZOOM ---
+    function toggleF(t){
+        const f=t==='C'?"contrast(300%)":"invert(100%)";
+        [i1,i2,v1,v2].forEach(el=>el.style.filter=el.style.filter===f?"none":f);
+    }
+    window.onwheel=(e)=>{
+        const s=e.clientX<320+(window.innerWidth-320)/2?s1:s2;
+        s.sc=Math.min(Math.max(0.1,s.sc+e.deltaY*-0.002),20);
+        const el=s===s1?(s1.cam?v1:i1):(s2.cam?v2:i2);
+        el.style.transform=`translate(${s.x}px, ${s.y}px) scale(${s.sc})`;
+    };
+    window.onmousedown=(e)=>{if(e.clientX<320)return; drag=e.clientX<320+(window.innerWidth-320)/2?s1:s2; startPos={x:e.clientX-drag.x,y:e.clientY-drag.y};};
+    window.onmouseup=()=>drag=null;
+    window.onmousemove=(e)=>{
+        if(!drag)return; drag.x=e.clientX-startPos.x; drag.y=e.clientY-startPos.y;
+        const el=drag===s1?(s1.cam?v1:i1):(s2.cam?v2:i2);
+        el.style.transform=`translate(${drag.x}px, ${drag.y}px) scale(${drag.sc})`;
+    };
+
+    // Initialisation calme
+    loadComments();
+    setInterval(loadComments, 30000); // 30 secondes pour ne plus être banni
+</script>
+</body>
+</html>
